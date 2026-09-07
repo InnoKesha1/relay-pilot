@@ -89,7 +89,7 @@ jobs:
         run: flutter build apk --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true --build-number=${{ github.run_number }}
       - name: Build Windows
         if: matrix.platform == 'windows'
-        run: flutter build windows --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true --build-number=${{ github.run_number }}
+        run: flutter build windows --verbose --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true --build-number=${{ github.run_number }}
       - name: Windows installer
         if: matrix.platform == 'windows'
         shell: pwsh
