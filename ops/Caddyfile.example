@@ -1,0 +1,41 @@
+{
+    # Access logging is intentionally absent. Runtime error logs can contain
+    # request URLs too, so suppress them and monitor with /healthz + systemd.
+    log {
+        output discard
+    }
+    servers {
+        protocols h1 h2
+    }
+}
+
+# Deploy on the common exit. Point these three DNS names at the exit's IPv4.
+# Sing-box exit listens on 8443, Caddy exclusively on TCP 80/443.
+sub.example.com {
+    header Cache-Control "no-store"
+    header Referrer-Policy "no-referrer"
+    handle /sub/* {
+        reverse_proxy 127.0.0.1:8090
+    }
+    handle /healthz {
+        reverse_proxy 127.0.0.1:8090
+    }
+    handle /generate_204 {
+        respond "" 204
+    }
+    handle {
+        respond "Relay Pilot" 200
+    }
+}
+exit.example.com {
+    respond "Relay Pilot" 200
+}
+reality.example.com {
+    respond "Relay Pilot" 200
+}
+
+# On entry B use a separate Caddyfile with the same global block and:
+# b.example.com {
+#     respond "Relay Pilot" 200
+# }
+# Its Hysteria2 listener uses UDP 443; Caddy HTTP/3 is disabled above.

@@ -1,0 +1,103 @@
+name: Relay Pilot
+on:
+  push:
+    branches: [main, pilot]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: relay-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  service:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: service/go.sum
+      - run: go test -race ./...
+        working-directory: service
+      - run: python3 -m unittest discover -s ops/tests
+      - name: Download pinned test core
+        run: |
+          curl --fail --location --retry 3 -o core.tgz https://github.com/SagerNet/sing-box/releases/download/v1.13.0/sing-box-1.13.0-linux-amd64.tar.gz
+          echo '86db0f9df3f822ca2adccde2f7c1c9e21d64e646a77bf258274fde3be399025b  core.tgz' | sha256sum -c
+          tar -xzf core.tgz
+          echo "SING_BOX_BIN=$PWD/sing-box-1.13.0-linux-amd64/sing-box" >> "$GITHUB_ENV"
+      - run: go test -tags=integration ./internal/pilot -run TestNetwork -v -count=1
+        working-directory: service
+      - run: go build -trimpath -o ../dist/relaypilot-linux-amd64 ./cmd/relaypilot
+        working-directory: service
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: relaypilot-control
+          path: dist/relaypilot-linux-amd64
+  app:
+    needs: service
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: android
+          - os: windows-2022
+            platform: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.9'
+      - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e
+        with:
+          flutter-version: '3.38.5'
+          channel: stable
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17.0.14+7'
+      - run: python tool/fetch_core.py ${{ matrix.platform }}
+      - run: flutter pub get --enforce-lockfile
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib
+      - run: flutter test --no-pub test/relay
+      - name: Native Windows core authentication
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $env:RELAY_NATIVE_RPC_TEST='1'
+          $env:PATH="$PWD/hiddify-core/bin;$env:PATH"
+          flutter test --no-pub test/relay/native_rpc_test.dart
+      - name: Configure stable Android signing key
+        if: matrix.platform == 'android'
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_SIGNING_KEY }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+        shell: bash
+        run: |
+          test -n "$KEYSTORE" || { echo 'Configure the four ANDROID_SIGNING secrets described in docs/BUILD.md'; exit 1; }
+          printf '%s' "$KEYSTORE" | base64 --decode > android/key.jks
+          printf 'storeFile=%s/android/key.jks\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n' "$PWD" "$STORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+      - name: Build APK
+        if: matrix.platform == 'android'
+        run: flutter build apk --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true --build-number=${{ github.run_number }}
+      - name: Build Windows
+        if: matrix.platform == 'windows'
+        run: flutter build windows --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true --build-number=${{ github.run_number }}
+      - name: Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows/relay-pilot.iss'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: RelayPilot-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            dist/RelayPilot-Windows-x64-Setup.exe

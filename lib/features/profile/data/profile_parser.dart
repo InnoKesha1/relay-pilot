@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:hiddify/features/relay/relay_profile.dart';
 import 'dart:io';
 
 import 'package:dartx/dartx.dart';
@@ -60,12 +61,7 @@ class ProfileParser {
     required UserOverride? userOverride,
   }) {
     return TaskEither.tryCatch(() async {
-          await expandRemoteLinesInParallel(
-            tempFilePath: tempFilePath,
-            httpClient: _httpClient,
-            cancelToken: CancelToken(),
-            ref: _ref,
-          );
+          await RelayProfile.validateFile(tempFilePath);
         }, (_, __) => ProfileFailure.unexpected())
         .flatMap((_) => TaskEither.fromEither(populateHeaders(content: content)))
         .flatMap(
@@ -149,6 +145,7 @@ class ProfileParser {
     // if (url.startsWith("http://"))
     //   throw const ProfileFailure.invalidUrl('HTTP is not supported. Please use HTTPS for secure connection.');
 
+    RelayProfile.subscriptionUri(url);
     final rs = await _httpClient
         .download(
           url.trim(),
@@ -164,18 +161,13 @@ class ProfileParser {
           }
           throw err;
         });
-    await expandRemoteLinesInParallel(
-      tempFilePath: tempFilePath,
-      httpClient: _httpClient,
-      cancelToken: cancelToken ?? CancelToken(),
-      ref: _ref,
-    );
+    await RelayProfile.validateFile(tempFilePath);
     // fixing headers before return
     return rs.headers.map.map((key, value) {
       if (value.length == 1) return MapEntry(key, value.first);
       return MapEntry(key, value);
     });
-  }, (err, st) => err is ProfileFailure ? err : ProfileFailure.unexpected(err, st));
+  }, (_, __) => const ProfileFailure.unexpected('Не удалось получить профиль. Проверь ссылку и подключение.'));
   Future<void> expandRemoteLinesInParallel({
     required String tempFilePath,
     required DioHttpClient httpClient,

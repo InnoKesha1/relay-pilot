@@ -168,11 +168,12 @@ class BoxService(
                         it.workingDir = Settings.workingDir
                         it.tempDir = Settings.tempDir
                         it.fixAndroidStack = com.hiddify.hiddify.bg.Bugs.fixAndroidStack
-                        it.mode=4L//mode.toLong()
+                        it.mode=2L
                         it.listen= "127.0.0.1:${Settings.grpcServiceModePort}"
                         it.secret=""
                         it.debug = Settings.debugMode
                     },platformInterface)
+                Mobile.addGrpcClientPublicKey(Settings.grpcFlutterPublicKey)
 
 
 //                Libbox.newService(content,platformInterface)
@@ -184,7 +185,8 @@ class BoxService(
             status.postValue(Status.Started)
 
             if (Settings.startCoreAfterStartingService){
-                Mobile.start("","")
+                stopAndAlert(Alert.StartService, "Открой Relay Pilot для подключения.")
+                return
                 }
 //            if (delayStart) {
 //                delay(1000L)
@@ -295,7 +297,7 @@ class BoxService(
 //            commandServer = null
             Settings.startedByUser = false
             withContext(Dispatchers.Main) {
-                Mobile.close(4L)
+                Mobile.close(2L)
                 status.value = Status.Stopped
                 service.stopSelf()
             }

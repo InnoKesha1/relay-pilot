@@ -40,6 +40,7 @@ class ForegroundProfilesUpdateNotifier extends _$ForegroundProfilesUpdateNotifie
     if (ref.watch(Preferences.introCompleted)) {
       loggy.debug("intro done, starting");
       _scheduler?.start();
+      Future.microtask(trigger);
     } else {
       loggy.debug("intro in process, skipping");
     }

@@ -1,0 +1,141 @@
+{
+  "dns": {
+    "final": "relay-dns",
+    "servers": [
+      {
+        "detour": "relay-select",
+        "path": "/dns-query",
+        "server": "1.1.1.1",
+        "server_port": 443,
+        "tag": "relay-dns",
+        "tls": {
+          "enabled": true
+        },
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "mtu": 1400,
+      "stack": "mixed",
+      "strict_route": true,
+      "tag": "relay-tun",
+      "type": "tun"
+    }
+  ],
+  "log": {
+    "disabled": true
+  },
+  "outbounds": [
+    {
+      "default": "relay-auto",
+      "interrupt_exist_connections": true,
+      "outbounds": [
+        "relay-auto",
+        "route-a",
+        "route-b"
+      ],
+      "tag": "relay-select",
+      "type": "selector"
+    },
+    {
+      "idle_timeout": "24h",
+      "interrupt_exist_connections": true,
+      "interval": "15s",
+      "outbounds": [
+        "route-a",
+        "route-b"
+      ],
+      "tag": "relay-auto",
+      "tolerance": 100,
+      "type": "urltest",
+      "url": "https://relay.example/generate_204"
+    },
+    {
+      "detour": "entry-a",
+      "multiplex": {
+        "enabled": true,
+        "protocol": "smux"
+      },
+      "packet_encoding": "xudp",
+      "server": "192.0.2.12",
+      "server_port": 8443,
+      "tag": "route-a",
+      "tls": {
+        "enabled": true,
+        "server_name": "exit.example"
+      },
+      "type": "vless",
+      "uuid": "22222222-2222-4222-8222-222222222222"
+    },
+    {
+      "detour": "entry-b",
+      "multiplex": {
+        "enabled": true,
+        "protocol": "smux"
+      },
+      "packet_encoding": "xudp",
+      "server": "192.0.2.12",
+      "server_port": 8443,
+      "tag": "route-b",
+      "tls": {
+        "enabled": true,
+        "server_name": "exit.example"
+      },
+      "type": "vless",
+      "uuid": "22222222-2222-4222-8222-222222222222"
+    },
+    {
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "tag": "entry-a",
+      "tls": {
+        "enabled": true,
+        "reality": {
+          "enabled": true,
+          "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "short_id": "aabbccdd"
+        },
+        "server_name": "relay.example",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "type": "vless",
+      "uuid": "11111111-1111-4111-8111-111111111111"
+    },
+    {
+      "password": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "server": "192.0.2.11",
+      "server_port": 443,
+      "tag": "entry-b",
+      "tls": {
+        "enabled": true,
+        "server_name": "b.example"
+      },
+      "type": "hysteria2"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": "relay-dns",
+    "final": "relay-select",
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      }
+    ]
+  }
+}

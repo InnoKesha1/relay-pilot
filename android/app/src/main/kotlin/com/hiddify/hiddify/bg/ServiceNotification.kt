@@ -74,7 +74,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
         NotificationCompat.Builder(service, notificationChannel)
                 .setShowWhen(false)
                 .setOngoing(true)
-                .setContentTitle("Hiddify")
+                .setContentTitle("Relay Pilot")
                 .setOnlyAlertOnce(true)
                 .setSmallIcon(R.drawable.ic_stat_logo)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -109,27 +109,19 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Application.notification.createNotificationChannel(
                 NotificationChannel(
-                    notificationChannel, "hiddify service", NotificationManager.IMPORTANCE_LOW
+                    notificationChannel, "Relay Pilot", NotificationManager.IMPORTANCE_LOW
                 )
             )
         }
         service.startForeground(
             notificationId, notificationBuilder
-                .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "Hiddify")
+                .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "Relay Pilot")
                 .setContentText(service.getString(contentTextId)).build()
         )
     }
 
 
-    suspend fun start() {
-        if (Settings.dynamicNotification && checkPermission()) {
-//            commandClient.connect()
-            startListenSystemInfo()
-            withContext(Dispatchers.Main) {
-                registerReceiver()
-            }
-        }
-    }
+    suspend fun start() { /* Statistics are shown in the authenticated Flutter UI. */ }
 
     private fun registerReceiver() {
         service.registerReceiver(this, IntentFilter().apply {
@@ -173,35 +165,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
 
     private var streamingJob: Job? = null
 
-    fun startListenSystemInfo() {
-        // Cancel any previous stream if still running
-        Log.d("notification","startListenSystemInfo")
-        streamingJob?.cancel()
-
-        streamingJob = streamingCoroutineScope.launch(Dispatchers.IO) {
-            Log.d("notification", "startListenSystemInfo-launch")
-
-            val coreClient = GrpcClientProvider.grpcClient.create(CoreClient::class)
-
-            try {
-                var previous = coreClient.GetSystemInfo().executeBlocking(Empty())
-
-                while (isActive) {
-                    delay(1_000) // ✅ coroutine-friendly
-                    val current = coreClient.GetSystemInfo().executeBlocking(Empty())
-                    updateStatus(previous,current)
-                    previous = current
-                }
-            } catch (e: CancellationException) {
-                // coroutine cancelled normally
-                Log.d("notification", "SystemInfo polling cancelled")
-                notification.cancel(notificationId)
-            } catch (e: Exception) {
-                Log.e("notification", "SystemInfo polling failed", e)
-                notification.cancel(notificationId)
-            }
-        }
-    }
+    fun startListenSystemInfo() { }
     fun stopListenSystemInfo(){
         try {
             streamingJob?.cancel()

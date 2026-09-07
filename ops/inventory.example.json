@@ -1,0 +1,15 @@
+{
+  "public_url": "https://sub.example.com",
+  "probe_url": "https://sub.example.com/generate_204",
+  "dns_address": "1.1.1.1",
+  "entry_a": {"address":"192.0.2.10","port":443,"ssh_host":"192.0.2.10","ssh_user":"relaydeploy","ssh_port":22},
+  "entry_b": {"address":"192.0.2.11","port":443,"server_name":"b.example.com","certificate":"/etc/relaypilot/tls/cert.pem","key":"/etc/relaypilot/tls/key.pem","ssh_host":"192.0.2.11","ssh_user":"relaydeploy","ssh_port":22},
+  "exit": {"address":"192.0.2.12","port":8443,"server_name":"exit.example.com","certificate":"/etc/relaypilot/tls/cert.pem","key":"/etc/relaypilot/tls/key.pem","ssh_host":"192.0.2.12","ssh_user":"relaydeploy","ssh_port":22},
+  "reality_public_key": "REPLACE_WITH_GENERATED_PUBLIC_KEY",
+  "reality_private_key": "REPLACE_WITH_GENERATED_PRIVATE_KEY",
+  "reality_short_id": "aabbccdd",
+  "reality_server_name": "reality.example.com",
+  "reality_handshake_port": 443,
+  "ssh_identity": "/etc/relaypilot/ssh/id_ed25519",
+  "ssh_known_hosts": "/etc/relaypilot/ssh/known_hosts"
+}

@@ -68,3 +68,13 @@ app.*.map.json
 # Windows Self-Signed for msix
 windows/sign.pfx
 windows/sign.cer
+# Relay Pilot private state and artifacts
+*.db
+*.db-wal
+*.db-shm
+*.jks
+*.pem
+*.key
+inventory.json
+node-state/
+__pycache__/

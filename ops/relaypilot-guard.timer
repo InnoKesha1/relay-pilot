@@ -1,0 +1,9 @@
+[Unit]
+Description=Stop unrefreshed transport within 75 seconds
+[Timer]
+OnBootSec=5
+OnUnitActiveSec=10
+AccuracySec=1
+Unit=relaypilot-guard.service
+[Install]
+WantedBy=timers.target

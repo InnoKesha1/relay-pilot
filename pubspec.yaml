@@ -1,7 +1,7 @@
 name: hiddify
 description: Cross Platform Multi Protocol Proxy Frontend.
 publish_to: "none"
-version: 4.1.1+40101
+version: 0.1.0+1
 
 environment:
   sdk: ^3.10.4
@@ -12,6 +12,8 @@ environment:
   flutter: ^3.38.5
   
 dependencies:
+  image: 4.5.3
+  zxing2: 0.2.4
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -93,7 +95,9 @@ dependencies:
   in_app_review: ^2.0.10
   # circle_flags: ^4.0.2
   circle_flags:
-    git: https://github.com/hiddify-com/flutter_circle_flags.git
+    git:
+      url: https://github.com/hiddify-com/flutter_circle_flags.git
+      ref: 19d83cba60de91143491a441b5076583bf1681a8
   fixnum: ^1.1.0
   grpc: ^4.0.1
   bottom_navy_bar: ^6.1.0
@@ -115,7 +119,9 @@ dependencies:
   # https://github.com/miguelpruivo/flutter_file_picker/wiki/Setup
   file_picker: ^8.1.7
   installed_apps: # ^1.5.2
-    git: https://github.com/VB10/installed_apps
+    git:
+      url: https://github.com/VB10/installed_apps
+      ref: 395d51876f9b5b4bc620d8549b05755c6f1966ba
 
   # change case of text
   # for example camelCase to snake_case
@@ -135,8 +141,8 @@ dependencies:
   dependency_validator: ^5.0.2
 
 dev_dependencies:
-  # flutter_test:
-  #   sdk: flutter
+  flutter_test:
+    sdk: flutter
   lint: ^2.3.0
   build_web_compilers: ^4.0.11
   build_runner: ^2.4.13
@@ -154,6 +160,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - LICENSE.md
     # - assets/core/geoip.db
     # - assets/core/geosite.db
     - assets/images/logo.svg

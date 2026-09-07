@@ -22,6 +22,7 @@ class DioHttpClient with InfraLogger {
       _dio[mode]!.interceptors.add(
         RetryInterceptor(
           dio: _dio[mode]!,
+          logPrint: (_) {},
           retryDelays: [
             const Duration(seconds: 1),
             if (mode != "proxy") ...[const Duration(seconds: 2), const Duration(seconds: 3)],
@@ -118,10 +119,14 @@ class DioHttpClient with InfraLogger {
         ? "both"
         : "direct";
     final dio = _dio[mode]!;
+    final safeToken = cancelToken ?? CancelToken();
     return dio.download(
       url,
       path,
-      cancelToken: cancelToken,
+      cancelToken: safeToken,
+      onReceiveProgress: (received, total) {
+        if (received > 1024 * 1024 || total > 1024 * 1024) safeToken.cancel('Profile too large');
+      },
       options: _options(url, userAgent: userAgent, credentials: credentials),
     );
   }
@@ -142,6 +147,7 @@ class DioHttpClient with InfraLogger {
     }
 
     return Options(
+      followRedirects: false,
       headers: {
         if (userAgent != null) "User-Agent": userAgent,
         if (basicAuth != null) "authorization": basicAuth,

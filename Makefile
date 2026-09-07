@@ -49,11 +49,7 @@ CORE_PRODUCT_NAME=hiddify-core
 CORE_NAME=hiddify-lib
 LIB_NAME=hiddify-core
 
-ifeq ($(CHANNEL),prod)
-	CORE_URL=https://github.com/hiddify/hiddify-next-core/releases/download/v$(core.version)
-else
-	CORE_URL=https://github.com/hiddify/hiddify-next-core/releases/download/draft
-endif
+CORE_URL=https://github.com/hiddify/hiddify-next-core/releases/download/v$(core.version)
 
 ifeq ($(CHANNEL),prod)
 	TARGET=lib/main_prod.dart
@@ -284,45 +280,16 @@ android-aab-release:
 	  --build-dart-define=sentry_dsn=$(SENTRY_DSN) \
 	  --build-dart-define=release=google-play
 
-windows-release: windows-zip-release windows-exe-release windows-msix-release
-
-windows-zip-release:
-	fastforge package \
-	  --platform windows \
-	  --targets zip \
-	  --skip-clean \
-	  --build-target=$(TARGET) \
-	  --build-dart-define=sentry_dsn=$(SENTRY_DSN) \
-	  --build-dart-define=portable=true
-	@FULL_PATH=$$(ls dist/*/*.zip | head -n 1); \
-	ZIP_DIR=$$(dirname "$$FULL_PATH"); \
-	ZIP_FILE=$$(basename "$$FULL_PATH"); \
-	FILE_NAME=$${ZIP_FILE%.*}; \
-	$(YELLOW)Post-processing Windows portable$(DONE); \
-	cd "$$ZIP_DIR"; \
-	$(BLUE)Extracting and Repacking...$(DONE); \
-	mkdir -p Hiddify; \
-	unzip -q "$$ZIP_FILE" -d Hiddify/; \
-	rm "$$ZIP_FILE"; \
-	tar -a -cf "$$FILE_NAME.zip" Hiddify; \
-	rm -rf Hiddify; \
-	$(GREEN)Successful$(DONE)
+# Relay Pilot has its own installer; do not invoke upstream service-removal scripts.
+windows-release: windows-exe-release
 
 windows-exe-release:
-	fastforge package \
-	  --platform windows \
-	  --targets exe \
-	  --skip-clean \
-	  --build-target=$(TARGET) \
-	  --build-dart-define=sentry_dsn=$(SENTRY_DSN)
+	flutter build windows --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true
+	iscc windows/relay-pilot.iss
 
-windows-msix-release:
-	fastforge package \
-	  --platform windows \
-	  --targets msix \
-	  --skip-clean \
-	  --build-target=$(TARGET) \
-	  --build-dart-define=sentry_dsn=$(SENTRY_DSN)
+windows-zip-release windows-msix-release:
+	@echo "Use windows/relay-pilot.iss; portable/MSIX releases are outside this pilot."
+	@exit 1
 
 linux-release: linux-deb-release linux-appimage-release
 

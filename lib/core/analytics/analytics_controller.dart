@@ -20,12 +20,13 @@ bool _testCrashReport = false;
 class AnalyticsController extends _$AnalyticsController with AppLogger {
   @override
   Future<bool> build() async {
-    return _preferences.getBool(enableAnalyticsPrefKey) ?? true;
+    return false; // Pilot has no external analytics.
   }
 
   SharedPreferences get _preferences => ref.read(sharedPreferencesProvider).requireValue;
 
   Future<void> enableAnalytics() async {
+    if (const bool.fromEnvironment('RELAY_PILOT', defaultValue: true)) return;
     if (state case AsyncData(value: final enabled)) {
       loggy.debug("enabling analytics");
       state = const AsyncLoading();

@@ -1,0 +1,13 @@
+{
+  "app": "0.1.0+1",
+  "upstream_app": "4.1.1",
+  "upstream_commit": "abbd671bf6bf05195acd4158c714bff267cada8f",
+  "upstream_core_commit": "c9d6f0f00b2eda34e4fb71863e4e0a62b3e931a0",
+  "hiddify_core": "4.1.0",
+  "sing_box_server": "1.13.0",
+  "flutter": "3.38.5",
+  "dart": "3.10.4",
+  "go": "1.27.1",
+  "caddy": "2.10.2",
+  "android_ndk": "28.2.13676358"
+}

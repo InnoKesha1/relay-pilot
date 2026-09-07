@@ -19,7 +19,7 @@ bool _debugIntroPage = false;
 abstract class Preferences {
   static final introCompleted = PreferencesNotifier.create(
     "intro_completed",
-    false,
+    true,
     overrideValue: _debugIntroPage && kDebugMode ? false : null,
   );
 
@@ -98,7 +98,7 @@ abstract class Preferences {
 
   static final dynamicNotification = PreferencesNotifier.create<bool, bool>("dynamic_notification", true);
 
-  static final autoCheckIp = PreferencesNotifier.create<bool, bool>("auto_check_ip", true);
+  static final autoCheckIp = PreferencesNotifier.create<bool, bool>("auto_check_ip", false);
 
   static final startedByUser = PreferencesNotifier.create<bool, bool>("started_by_user", false);
 

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:basic_utils/basic_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/model/directories.dart';
@@ -25,11 +24,10 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   static const statusChannel = EventChannel("$channelPrefix/service.status", JSONMethodCodec());
   static const alertsChannel = EventChannel("$channelPrefix/service.alerts", JSONMethodCodec());
 
-  late Uint8List serverPublicKey;
-  static final cert = CryptoUtils.generateEcKeyPair();
+  final _identity = RelayRpcIdentity();
 
-  static const portBack = 17079;
-  static const portFront = 17078;
+  static const portBack = 17179;
+  static const portFront = 17178;
 
   bool _isBgClientAvailable = false;
   bool _debug = false;
@@ -37,50 +35,36 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   late LastStream<CoreStatus> _status;
   @override
   Future<String> setup(Directories directories, bool debug, int mode) async {
-    final channelOption = [1, 2].contains(mode)
-        ? MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientKey: cert)
-        : const ChannelCredentials.insecure();
-    _debug = debug;
-    final helloClient = HelloClient(
-      ClientChannel(
-        '127.0.0.1',
-        port: portFront,
-        options: ChannelOptions(credentials: channelOption),
-      ),
+    _debug = false;
+    await methodChannel.invokeMethod('setup', {
+      'baseDir': directories.baseDir.path,
+      'workingDir': directories.workingDir.path,
+      'tempDir': directories.tempDir.path,
+      'grpcPort': portFront,
+      'mode': 1,
+      'debug': false,
+    });
+    final serverPublicKey = await methodChannel.invokeMethod<Uint8List>('get_grpc_server_public_key');
+    if (serverPublicKey == null || serverPublicKey.isEmpty) return 'Не удалось проверить ядро';
+    await methodChannel.invokeMethod('add_grpc_client_public_key', {'clientPublicKey': _identity.registration});
+    final channelOption = MTLSChannelCredentials(serverPublicKey: serverPublicKey, identity: _identity);
+    final helloChannel = ClientChannel(
+      '127.0.0.1',
+      port: portFront,
+      options: ChannelOptions(credentials: channelOption),
     );
+    try {
+      await HelloClient(helloChannel).sayHello(
+        HelloRequest(name: 'Relay Pilot'),
+        options: CallOptions(timeout: const Duration(seconds: 5)),
+      );
+    } finally {
+      await helloChannel.shutdown();
+    }
     final status = statusChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
     final alerts = alertsChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
 
     _status = LastStream(ValueConnectableStream(Rx.merge([status, alerts])).autoConnect());
-    try {
-      await helloClient.sayHello(HelloRequest(name: "test"));
-      loggy.info("core is already started!");
-    } catch (e) {
-      //core is not started yet
-
-      await methodChannel.invokeMethod("setup", {
-        "baseDir": directories.baseDir.path,
-        "workingDir": directories.workingDir.path,
-        "tempDir": directories.tempDir.path,
-        "grpcPort": portFront,
-        "mode": mode,
-        "debug": debug,
-      });
-      final res = await helloClient.sayHello(HelloRequest(name: "test"));
-      loggy.info(res.toString());
-    }
-
-    // serverPublicKey = await methodChannel.invokeMethod<Uint8List>("get_grpc_server_public_key") ?? Uint8List.fromList([]);
-    // await methodChannel.invokeMethod(
-    //   "add_grpc_client_public_key",
-    //   {
-    //     "clientPublicKey": ascii.encode(CryptoUtils.encodeEcPublicKeyToPem(cert.publicKey as ECPublicKey)),
-    //   },
-    // );
-    // serverPublicKey = X509Utils.x509CertificateFromPem(String.fromCharCodes(serverPublicKey));
-    // var chanelOption = ChannelOptions(
-    //   credentials: MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientPrivateKey: cert.privateKey as ECPrivateKey),
-    // );
     fgClient = CoreClient(
       ClientChannel(
         '127.0.0.1',

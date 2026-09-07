@@ -37,9 +37,9 @@ class AppDirectories extends _$AppDirectories with InfraLogger {
       dirs = (baseDir: portableDir, workingDir: portableDir, tempDir: await getTemporaryDirectory());
     } else {
       final baseDir = await getApplicationSupportDirectory();
-      final workingDir = Platform.isAndroid ? await getExternalStorageDirectory() : baseDir;
+      final workingDir = baseDir;
       final tempDir = await getTemporaryDirectory();
-      dirs = (baseDir: baseDir, workingDir: workingDir!, tempDir: tempDir);
+      dirs = (baseDir: baseDir, workingDir: workingDir, tempDir: tempDir);
     }
 
     if (!dirs.baseDir.existsSync()) {
@@ -71,7 +71,7 @@ class AppDirectories extends _$AppDirectories with InfraLogger {
 
   static Directory getPortableDirectory() {
     final exeDir = File(Platform.resolvedExecutable).parent;
-    return Directory(p.join(exeDir.path, 'hiddify_portable_data'));
+    return Directory(p.join(exeDir.path, 'relay_pilot_data'));
   }
 
   static Future<bool> checkDirectoryAccess(Directory dir) async {

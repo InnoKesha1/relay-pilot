@@ -1,0 +1,8 @@
+[Unit]
+Description=Consistent private Relay Pilot SQLite backup
+[Service]
+Type=oneshot
+User=relaypilot
+Group=relaypilot
+UMask=0077
+ExecStart=/bin/sh -c '/usr/local/bin/relaypilot backup /var/lib/relaypilot/backups/pilot-$(date -u +%%Y%%m%%dT%%H%%M%%SZ).db'

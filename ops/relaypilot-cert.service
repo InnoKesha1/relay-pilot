@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh Relay Pilot transport certificate from Caddy
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/relaypilot/certificate.env
+ExecStart=/usr/local/sbin/relaypilot-copy-certificate ${CERT_DOMAIN}

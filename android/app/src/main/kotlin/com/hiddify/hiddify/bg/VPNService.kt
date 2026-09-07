@@ -160,38 +160,10 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                 }
             }
 
-            if (Settings.perAppProxyEnabled) {
-                val appList = Settings.perAppProxyList
-                if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
-                    appList.forEach {
-                        addIncludePackage(builder,it)
-                    }
-//                    addIncludePackage(builder,packageName)
-                } else {
-                    appList.forEach {
-                        addExcludePackage(builder,it)
-                    }
-                    addExcludePackage(builder,packageName)
-                }
-            } else {
-                val includePackage = options.includePackage
-                if (includePackage.hasNext()) {
-                    while (includePackage.hasNext()) {
-                        addIncludePackage(builder,includePackage.next())
-                    }
-                    //                    addIncludePackage(builder,packageName)
-                }else {
-                    val excludePackage = options.excludePackage
-                    if (excludePackage.hasNext()) {
-                        while (excludePackage.hasNext()) {
-                            addExcludePackage(builder, excludePackage.next())
-                        }
-                    }
+            // Only this VPN application's own transport sockets bypass the TUN.
+            // Imported settings cannot exclude any other user application.
+            addExcludePackage(builder, packageName)
 
-                    addExcludePackage(builder, packageName)
-                }
-                
-            }
         }
 
         if (options.isHTTPProxyEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

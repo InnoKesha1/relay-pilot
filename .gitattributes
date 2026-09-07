@@ -1,0 +1,6 @@
+*.sh text eol=lf
+ops/relaypilot-node text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.py text eol=lf
+*.yml text eol=lf

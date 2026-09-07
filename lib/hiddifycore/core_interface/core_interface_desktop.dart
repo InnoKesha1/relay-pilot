@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:math';
-
+import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/model/directories.dart';
@@ -12,122 +12,73 @@ import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore_service.pbgrpc.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello.pb.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello_service.pbgrpc.dart';
-import 'package:hiddify/utils/custom_loggers.dart';
-
-import 'package:loggy/loggy.dart';
-
 import 'package:path/path.dart' as p;
 
-final _logger = Loggy('HiddifyCoreFFI');
-typedef StopFunc = Pointer<Utf8> Function();
-typedef StopFuncDart = Pointer<Utf8> Function();
-
-class CoreInterfaceDesktop extends CoreInterface with InfraLogger {
-  static final HiddifyCoreNativeLibrary _box = _gen();
-
-  static HiddifyCoreNativeLibrary _gen() {
-    String fullPath = "";
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      fullPath = "hiddify-core";
-    }
-    if (Platform.isWindows) {
-      fullPath = p.join(fullPath, "hiddify-core.dll");
-    } else if (Platform.isMacOS) {
-      fullPath = p.join(fullPath, "hiddify-core.dylib");
-    } else {
-      fullPath = p.join(fullPath, "hiddify-core.so");
-    }
-
-    _logger.debug('hiddify-core native libs path: "$fullPath"');
-    final lib = DynamicLibrary.open(fullPath);
-    // final stopFunc = lib.lookup<NativeFunction<StopFunc>>('stop').asFunction<StopFunc>();
-    // final errPtr2 = stopFunc();
-    // final err = errPtr2.cast<Utf8>().toDartString();
-
-    return HiddifyCoreNativeLibrary(lib);
-  }
-
-  Future<bool> isMusl() async {
-    try {
-      final result = await Process.run('ldd', ['--version']);
-      return result.stdout.toString().toLowerCase().contains('musl');
-    } catch (_) {
-      return false;
-    }
-  }
-
-  final port = 17078;
-  static String generateRandomPassword(int length) {
-    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = Random();
-    return List.generate(length, (_) => characters[random.nextInt(characters.length)]).join();
-  }
-
-  static final String secret = generateRandomPassword(100);
+class CoreInterfaceDesktop extends CoreInterface {
+  static final HiddifyCoreNativeLibrary _box = HiddifyCoreNativeLibrary(
+    DynamicLibrary.open(
+      p.join(
+        Platform.environment.containsKey('FLUTTER_TEST') ? p.join('hiddify-core', 'bin') : '',
+        Platform.isWindows
+            ? 'hiddify-core.dll'
+            : Platform.isMacOS
+            ? 'hiddify-core.dylib'
+            : 'hiddify-core.so',
+      ),
+    ),
+  );
+  static const port = 17178;
+  final _identity = RelayRpcIdentity();
+  ClientChannel? _channel;
 
   @override
   Future<String> setup(Directories directories, bool debug, int mode) async {
-    // Generate a random password for the grpc service
-    // final errPtr2 = _box.stop();
-    // final err = errPtr2.cast<Utf8>().toDartString();
-    // throw Exception('stop: $err');
-    const channelOption = ChannelCredentials.insecure();
-    final helloClient = HelloClient(
-      ClientChannel(
-        '127.0.0.1',
-        port: port,
-        options: const ChannelOptions(credentials: channelOption),
-      ),
+    // Never attach to a foreign listener just because it answers Hello.
+    final error = using(
+      (arena) => _box
+          .setup(
+            directories.baseDir.path.toNativeUtf8(allocator: arena).cast(),
+            directories.workingDir.path.toNativeUtf8(allocator: arena).cast(),
+            directories.tempDir.path.toNativeUtf8(allocator: arena).cast(),
+            SetupMode.GRPC_NORMAL.value,
+            '127.0.0.1:$port'.toNativeUtf8(allocator: arena).cast(),
+            ''.toNativeUtf8(allocator: arena).cast(),
+            0,
+            0,
+          )
+          .cast<Utf8>()
+          .toDartString(),
     );
-
-    try {
-      await helloClient.sayHello(HelloRequest(name: "test"));
-      loggy.info("core is already started!");
-    } catch (e) {
-      //core is not started yet
-
-      final errPtr = _box.setup(
-        directories.baseDir.path.toNativeUtf8().cast(),
-        directories.workingDir.path.toNativeUtf8().cast(),
-        directories.tempDir.path.toNativeUtf8().cast(),
-        SetupMode.GRPC_NORMAL_INSECURE.value,
-        "127.0.0.1:$port".toNativeUtf8().cast(),
-        secret.toNativeUtf8().cast(),
-        0,
-        debug ? 1 : 0,
-      );
-      final err = errPtr.cast<Utf8>().toDartString();
-
-      if (err.isNotEmpty) {
-        return err;
-      }
-      final res = await helloClient.sayHello(HelloRequest(name: "test"));
-      loggy.info(res.toString());
-    }
-    bgClient = fgClient = CoreClient(
-      ClientChannel(
-        'localhost',
-        port: port,
-        options: const ChannelOptions(
-          credentials: ChannelCredentials.insecure(),
-          // credentials: ChannelCredentials.secure(
-          //   password: secret,
-          //   onBadCertificate: (certificate, host) => true,
-          // ),
+    if (error.isNotEmpty) return error;
+    final serverPem = _box.GetServerPublicKey().cast<Utf8>().toDartString();
+    final registrationError = using(
+      (arena) => _box.AddGrpcClientPublicKey(
+        utf8.decode(_identity.registration).toNativeUtf8(allocator: arena).cast(),
+      ).cast<Utf8>().toDartString(),
+    );
+    if (registrationError.isNotEmpty) return registrationError;
+    await _channel?.terminate();
+    final channel = ClientChannel(
+      '127.0.0.1',
+      port: port,
+      options: ChannelOptions(
+        credentials: MTLSChannelCredentials(
+          serverPublicKey: Uint8List.fromList(utf8.encode(serverPem)),
+          identity: _identity,
         ),
       ),
     );
-
-    return "";
+    _channel = channel;
+    await HelloClient(channel).sayHello(
+      HelloRequest(name: 'Relay Pilot'),
+      options: CallOptions(timeout: const Duration(seconds: 5)),
+    );
+    fgClient = bgClient = CoreClient(channel);
+    return '';
   }
 
-  @override
-  Future<bool> restart(String path, String name) async {
-    return false;
-  }
-
-  @override
-  Future<bool> stop() async {
-    return false;
+  Future<void> dispose() async {
+    await _channel?.terminate();
+    _box.closeGrpc(SetupMode.GRPC_NORMAL.value);
   }
 }

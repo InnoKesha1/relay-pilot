@@ -1,0 +1,6 @@
+[Unit]
+Description=Enforce Relay Pilot authorization lease
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/relaypilot-node guard
+SuccessExitStatus=1

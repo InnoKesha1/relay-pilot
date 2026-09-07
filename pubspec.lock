@@ -245,7 +245,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: HEAD
+      ref: "19d83cba60de91143491a441b5076583bf1681a8"
       resolved-ref: "19d83cba60de91143491a441b5076583bf1681a8"
       url: "https://github.com/hiddify-com/flutter_circle_flags.git"
     source: git
@@ -717,7 +717,7 @@ packages:
     source: hosted
     version: "2.0.17"
   flutter_test:
-    dependency: transitive
+    dependency: "direct dev"
     description: flutter
     source: sdk
     version: "0.0.0"
@@ -927,7 +927,7 @@ packages:
     source: hosted
     version: "1.0.0"
   image:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: image
       sha256: "13d3349ace88f12f4a0d175eb5c12dcdd39d35c4c109a8a13dfeb6d0bd9e31c3"
@@ -970,7 +970,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: HEAD
+      ref: "395d51876f9b5b4bc620d8549b05755c6f1966ba"
       resolved-ref: "395d51876f9b5b4bc620d8549b05755c6f1966ba"
       url: "https://github.com/VB10/installed_apps"
     source: git
@@ -2164,6 +2164,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.2"
+  zxing2:
+    dependency: "direct main"
+    description:
+      name: zxing2
+      sha256: "2677c49a3b9ca9457cb1d294fd4bd5041cac6aab8cdb07b216ba4e98945c684f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.4"
 sdks:
   dart: ">=3.10.4 <3.12.0-z"
   flutter: ">=3.38.5 <4.0.0"

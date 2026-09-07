@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Root-owned node helper. Receives private config on stdin, never in argv."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = Path('/etc/relaypilot/node')
+STATE = ROOT / 'state.json'
+CONFIG = ROOT / 'config.json'
+BIN = '/usr/local/bin/sing-box'
+UNIT = 'relaypilot-node.service'
+
+def call(*args):
+    return subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                          timeout=15, check=False).returncode == 0
+
+def atomic(path, data):
+    fd, tmp = tempfile.mkstemp(prefix='.pending-', dir=ROOT)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp): os.unlink(tmp)
+
+def main():
+    if os.geteuid() != 0 or len(sys.argv) != 2: return 2
+    ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with (ROOT / 'apply.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        old = json.loads(STATE.read_text()) if STATE.exists() else {}
+        if sys.argv[1] in ('guard', 'lease'):
+            valid = old.get('valid_until', 0) > time.time()
+            if not valid and sys.argv[1] == 'guard': call('systemctl', 'stop', UNIT)
+            return 0 if valid else 1
+        if sys.argv[1] != 'apply': return 2
+        data = sys.stdin.buffer.read(1048577)
+        if len(data) > 1048576: return 2
+        envelope = json.loads(data)
+        generation = envelope['generation']
+        deadline = envelope['valid_until']
+        if type(generation) is not int or type(deadline) is not int: return 2
+        if not time.time() < deadline <= time.time() + 65: return 2
+        if generation <= old.get('generation', 0): return 3
+        body = json.dumps(envelope['config'], sort_keys=True).encode()
+        digest = hashlib.sha256(body).hexdigest()
+        candidate = ROOT / 'candidate.json'
+        atomic(candidate, body)
+        if not call(BIN, 'check', '-c', str(candidate)):
+            candidate.unlink(missing_ok=True)
+            return 4
+        # Preserve a private diagnostic copy; it must never be automatically
+        # restored because it can contain revoked credentials.
+        changed = digest != old.get('digest') or not CONFIG.exists()
+        if changed:
+            if CONFIG.exists(): atomic(ROOT / 'previous.json', CONFIG.read_bytes())
+            os.replace(candidate, CONFIG)
+        else: candidate.unlink(missing_ok=True)
+        state = {'generation': generation, 'valid_until': deadline, 'digest': digest}
+        atomic(STATE, json.dumps(state).encode())
+        # A restart disconnects established sessions when credentials change.
+        # ExecStartPre uses 'lease' without taking this lock (see unit).
+        if changed or not call('systemctl', 'is-active', '--quiet', UNIT):
+            if not call('systemctl', 'restart', UNIT):
+                call('systemctl', 'stop', UNIT)
+                return 5
+        return 0
+
+if __name__ == '__main__':
+    try: sys.exit(main())
+    except Exception:
+        print('node operation failed', file=sys.stderr)
+        sys.exit(1)

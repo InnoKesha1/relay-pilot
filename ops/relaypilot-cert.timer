@@ -1,0 +1,7 @@
+[Unit]
+Description=Check Caddy renewals hourly
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=1h
+[Install]
+WantedBy=timers.target

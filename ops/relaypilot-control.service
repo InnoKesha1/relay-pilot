@@ -1,0 +1,21 @@
+[Unit]
+Description=Relay Pilot subscription and access control
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=relaypilot
+Group=relaypilot
+ExecStart=/usr/local/bin/relaypilot serve
+Restart=on-failure
+RestartSec=3
+UMask=0077
+StateDirectory=relaypilot
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/relaypilot
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+[Install]
+WantedBy=multi-user.target

@@ -1,43 +1,47 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:basic_utils/basic_utils.dart';
 import 'package:grpc/grpc.dart';
 
+/// Ephemeral identity: the client private key never leaves this process.
+class RelayRpcIdentity {
+  final AsymmetricKeyPair<PublicKey, PrivateKey> key = CryptoUtils.generateEcKeyPair();
+  late final String certificate = X509Utils.generateSelfSignedCertificate(
+    key.privateKey,
+    X509Utils.generateEccCsrPem(
+      {'CN': 'Relay Pilot client'},
+      key.privateKey as ECPrivateKey,
+      key.publicKey as ECPublicKey,
+    ),
+    365,
+    notBefore: DateTime.now().subtract(const Duration(minutes: 1)),
+  );
+  // Core 4.1.0 requires this PEM label even for a complete certificate.
+  Uint8List get registration => Uint8List.fromList(utf8.encode(certificate.replaceAll('CERTIFICATE', 'PUBLIC KEY')));
+}
+
 class MTLSChannelCredentials extends ChannelCredentials {
   final SecurityContext ctx = SecurityContext(withTrustedRoots: false);
-
-  MTLSChannelCredentials({
-    required Uint8List serverPublicKey,
-    required AsymmetricKeyPair<PublicKey, PrivateKey> clientKey,
-  }) : super.secure() {
-    // Ensure server public key is in PEM format
-    final serverPublicKeyPem = String.fromCharCodes(serverPublicKey);
-    if (!serverPublicKeyPem.contains('-----BEGIN CERTIFICATE-----')) {
-      throw ArgumentError('Server public key must be in PEM format.');
-    }
-    // Set the server's public key as trusted
+  MTLSChannelCredentials({required Uint8List serverPublicKey, required RelayRpcIdentity identity})
+    : super.secure(
+        authority: '127.0.0.1',
+        onBadCertificate: (certificate, host) {
+          // Upstream has no localhost SAN. Pin the exact certificate obtained
+          // through FFI / Android method channel, including its validity period.
+          final now = DateTime.now();
+          return host == '127.0.0.1' &&
+              now.isAfter(certificate.startValidity) &&
+              now.isBefore(certificate.endValidity) &&
+              _body(certificate.pem) == _body(utf8.decode(serverPublicKey));
+        },
+      ) {
+    ctx.setAlpnProtocols(['h2'], false);
     ctx.setTrustedCertificatesBytes(serverPublicKey);
-
-    // Convert the client's private key to PEM format
-    String privateKeyPem;
-    if (clientKey.privateKey is ECPrivateKey) {
-      privateKeyPem = CryptoUtils.encodeEcPrivateKeyToPem(clientKey.privateKey as ECPrivateKey);
-    } else if (clientKey.privateKey is RSAPrivateKey) {
-      privateKeyPem = CryptoUtils.encodeRSAPrivateKeyToPem(clientKey.privateKey as RSAPrivateKey);
-    } else {
-      throw ArgumentError('Unsupported private key type.');
-    }
-    ctx.usePrivateKeyBytes(Uint8List.fromList(privateKeyPem.codeUnits));
-
-    final cert = X509Utils.generateSelfSignedCertificate(clientKey.privateKey, 'CN=Client', 365);
-
-    ctx.useCertificateChainBytes(Uint8List.fromList(cert.codeUnits));
+    ctx.usePrivateKeyBytes(utf8.encode(CryptoUtils.encodeEcPrivateKeyToPem(identity.key.privateKey as ECPrivateKey)));
+    ctx.useCertificateChainBytes(utf8.encode(identity.certificate));
   }
-
+  static String _body(String pem) => pem.replaceAll(RegExp(r'-----[^-]+-----|\s'), '');
   @override
   SecurityContext get securityContext => ctx;
-
-  @override
-  bool get isSecure => true;
 }

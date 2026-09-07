@@ -1,3 +1,4 @@
+import 'package:hiddify/features/relay/relay_profile.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -91,7 +92,7 @@ class HiddifyCoreService with InfraLogger {
       try {
         final directories = ref.read(appDirectoriesProvider).requireValue;
         final debug = ref.read(debugModeNotifierProvider);
-        final setupResponse = await core.setup(directories, debug, 3);
+        final setupResponse = await core.setup(directories, false, 1);
 
         if (setupResponse.isNotEmpty) {
           return left(setupResponse);
@@ -138,6 +139,11 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<ConnectionFailure, Unit> start(String path, String name, bool disableMemoryLimit) {
     return TaskEither(() async {
+      try {
+        await RelayProfile.validateFile(path);
+      } catch (_) {
+        return left(const ConnectionFailure.unexpected('Некорректный профиль Relay Pilot.'));
+      }
       statusController.add(currentState = const CoreStatus.starting());
       loggy.debug("starting");
       final background = await core.setupBackground(path, name);
@@ -165,6 +171,7 @@ class HiddifyCoreService with InfraLogger {
             configName: name,
             // configContent: content,
             disableMemoryLimit: disableMemoryLimit,
+            enableRawConfig: true,
           ),
         );
         ref.read(coreRestartSignalProvider.notifier).restart();
@@ -226,11 +233,12 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<String, Unit> restart(String path, String name, bool disableMemoryLimit) {
     return TaskEither(() async {
+      await RelayProfile.validateFile(path);
       loggy.debug("restarting");
       // if (!await core.restart(path, name)) {
       try {
         final res = await core.bgClient.restart(
-          StartRequest(configPath: path, configName: name, disableMemoryLimit: disableMemoryLimit, delayStart: true),
+          StartRequest(configPath: path, configName: name, disableMemoryLimit: disableMemoryLimit, delayStart: true, enableRawConfig: true),
         );
         if (res.messageType != MessageType.EMPTY) return left("${res.messageType} ${res.message}");
       } on GrpcError catch (e) {

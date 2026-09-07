@@ -1,0 +1,24 @@
+Relay Pilot local verification, 2026-09-06
+Go 1.27.1 / Flutter 3.38.5 / Hiddify Core 4.1.0 / sing-box 1.13.0
+
+go test ./...: PASS
+go vet ./...: PASS
+Linux amd64 control binary: compiled with CGO_ENABLED=0; not executed on Linux
+Python node helper: 5 tests PASS (systemd/flock mocked on Windows)
+Caddy 2.10.2: Caddyfile validation PASS
+
+network-final.log
+network_integration_test.go:273: route-a verified: exit egress, keep-alive and 100 Connection: close responses
+network_integration_test.go:273: route-b verified: exit egress, keep-alive and 100 Connection: close responses
+network_integration_test.go:304: DNS verified through exit
+network_integration_test.go:335: entry-a failure recovered in 15.051s
+network_integration_test.go:335: entry-b failure recovered in 30.009s
+network_integration_test.go:374: revocation and exit failure fail closed
+--- PASS: TestNetworkChainsAndFailover (55.94s)
+
+flutter-unit-final.txt
+00:17 +7 ~1: All tests passed!
+
+native-rpc.txt
+00:06 +1: All tests passed!
+

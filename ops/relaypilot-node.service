@@ -1,0 +1,24 @@
+[Unit]
+Description=Relay Pilot transport
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/python3 -c "import json,time; s=json.load(open('/etc/relaypilot/node/state.json')); assert s['valid_until']>time.time()"
+ExecStart=/usr/local/bin/sing-box run -c /etc/relaypilot/node/config.json
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
