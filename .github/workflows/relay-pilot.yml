@@ -90,6 +90,23 @@ jobs:
       - name: Build Windows
         if: matrix.platform == 'windows'
         run: flutter build windows --verbose --release --target lib/main_prod.dart --dart-define=RELAY_PILOT=true --build-number=${{ github.run_number }}
+      - name: Verify APK signatures
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          test -n "$signer"
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+            "$signer" verify --verbose --print-certs "$apk"
+          done
+      - name: Verify Windows runtime bundle
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $bundle = 'build/windows/x64/runner/Release'
+          foreach ($file in @('RelayPilot.exe', 'flutter_windows.dll', 'hiddify-core.dll', 'libcronet.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'data/app.so', 'data/icudtl.dat')) {
+            if (!(Test-Path "$bundle/$file")) { throw "Missing runtime file: $file" }
+          }
       - name: Windows installer
         if: matrix.platform == 'windows'
         shell: pwsh
